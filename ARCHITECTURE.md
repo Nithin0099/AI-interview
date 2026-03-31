@@ -1,0 +1,516 @@
+# 🏗️ AI Interview Platform - Architecture Overview
+
+## System Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        USER BROWSER                              │
+│                  http://localhost:3000                           │
+└────────────────────────────┬────────────────────────────────────┘
+                             │
+                    ┌────────▼────────┐
+                    │   VITE (Dev)    │
+                    │   Port 3000     │
+                    │   React App     │
+                    └────────┬────────┘
+                             │
+            ┌────────────────┼────────────────┐
+            │                │                │
+       ┌────▼───┐       ┌────▼───┐      ┌────▼────┐
+       │ Routes │       │Context │      │Services │
+       │        │       │ (Auth) │      │(API)    │
+       └────────┘       └────────┘      └────┬────┘
+                                             │
+                    ┌────────────────────────┼────────────────────┐
+                    │                        │                    │
+            ┌───────▼─────────┐     ┌────────▼────────┐   ┌──────▼──────┐
+            │   Pages (10)    │     │ Components (2)  │   │Middleware   │
+            │ - Login         │     │ - Navbar        │   │- Interceptor│
+            │ - Signup        │     │ - PrivateRoute  │   │- Auth       │
+            │ - Dashboard     │     │                 │   └─────────────┘
+            │ - Resume Upload │     └─────────────────┘
+            │ - Interview     │
+            │ - AI Questions  │
+            │ - Recording     │
+            │ - Results       │
+            │ - Analytics     │
+            │ - Admin         │
+            └────────┬────────┘
+                     │
+                ┌────▼─────────────────────────────────────┐
+                │     AXIOS HTTP CLIENT                    │
+                │  Base URL: localhost:5000/api            │
+                │  Auto JWT Token Injection                │
+                └────────┬────────────────────────────────┘
+                         │
+          ┌──────────────┼──────────────┐
+          │              │              │
+    ┌─────▼────┐   ┌─────▼────┐   ┌────▼─────┐
+    │ Auth API │   │Interview │   │ Analytics │
+    │ Routes   │   │ Routes   │   │ Routes    │
+    └─────┬────┘   └─────┬────┘   └────┬─────┘
+          │              │              │
+          └──────────────┼──────────────┘
+                         │
+          ┌──────────────▼──────────────┐
+          │   EXPRESS SERVER            │
+          │   Port 5000                 │
+          │   http://localhost:5000     │
+          └──────────────┬──────────────┘
+                         │
+        ┌────────────────┼────────────────┐
+        │                │                │
+    ┌───▼──────┐    ┌────▼────┐    ┌─────▼────┐
+    │Middleware│    │Routes   │    │Controllers
+    │- Auth    │    │ 4 files │    │ 4 files  │
+    │- Upload  │    └─────────┘    └────┬─────┘
+    └──────────┘                         │
+                                    ┌────▼────────┐
+                                    │  Utilities   │
+                                    │- generateQs │
+                                    │- calcScore  │
+                                    │- JWT utils  │
+                                    └─────────────┘
+                         │
+          ┌──────────────┼──────────────┐
+          │              │              │
+    ┌─────▼────┐    ┌────▼────┐   ┌────▼──────┐
+    │   User   │    │Interview│   │ Question  │
+    │  Model   │    │ Model   │   │  Model    │
+    └──────────┘    └────┬────┘   └───────────┘
+                         │
+              ┌──────────▼──────────┐
+              │  MONGODB ATLAS      │
+              │  or Local MongoDB   │
+              │  Database           │
+              └─────────────────────┘
+```
+
+---
+
+## Request/Response Flow
+
+### User Login Flow
+```
+┌──────────────┐
+│ Login Page   │
+│ (Frontend)   │
+└──────┬───────┘
+       │ 1. POST /api/auth/login
+       │    {email, password}
+       │
+       ▼
+┌─────────────────────────────────────┐
+│     Express Server (Backend)        │
+│                                     │
+│ 1. Route to authController.login()  │
+│ 2. Find user by email               │
+│ 3. Compare password with bcryptjs   │
+│ 4. Generate JWT token               │
+│ 5. Return token + user info         │
+└──────┬──────────────────────────────┘
+       │ 2. Response:
+       │    {token, user}
+       │
+       ▼
+┌──────────────┐
+│ AuthContext  │
+│ Saves token  │
+│ to localStorage
+└──────┬───────┘
+       │
+       ▼
+┌──────────────┐
+│ Dashboard    │
+│ (Logged In)  │
+└──────────────┘
+```
+
+### Interview Creation Flow
+```
+┌──────────────────────────┐
+│ Resume Upload Page       │
+│ - Select PDF/DOC         │
+│ - Enter Job Title        │
+│ - Paste Job Description  │
+└──────────┬───────────────┘
+           │ 1. POST /api/interviews/create
+           │    FormData: {resume, jobTitle, jobDescription}
+           │    Header: Authorization: Bearer {token}
+           │
+           ▼
+┌──────────────────────────────────┐
+│ Express Server                   │
+│                                  │
+│ 1. Auth middleware checks JWT    │
+│ 2. Multer saves resume file      │
+│ 3. Create Interview document     │
+│ 4. Save to MongoDB               │
+│ 5. Return interviewId            │
+└──────────┬───────────────────────┘
+           │ 2. Response: {interviewId}
+           │
+           ▼
+┌──────────────────────────┐
+│ Interview Setup Page     │
+│ - Set difficulty         │
+│ - Set duration           │
+│ - Generate questions     │
+└──────────┬───────────────┘
+           │ 3. PUT /api/interviews/:id
+           │    {difficulty, duration, status: 'in_progress'}
+           │
+           ▼
+┌──────────────────────────────────┐
+│ Express Server                   │
+│                                  │
+│ 1. Update interview in DB        │
+│ 2. Generate AI questions         │
+│ 3. Save questions to interview   │
+│ 4. Return interview with questions
+└──────────┬───────────────────────┘
+           │
+           ▼
+┌──────────────────────────┐
+│ AI Question Screen       │
+│ Start answering questions│
+└──────────────────────────┘
+```
+
+---
+
+## Component Architecture
+
+```
+┌─────────────────────────────────────────┐
+│             App.jsx                     │
+│        Routes & Provider Setup          │
+└─────────────────┬───────────────────────┘
+                  │
+        ┌─────────┼─────────┐
+        │         │         │
+    ┌───▼──────┐ │    ┌─────▼─────┐
+    │ Navbar   │ │    │AuthProvider│
+    │Component │ │    │ (Context)  │
+    └──────────┘ │    └────────────┘
+                 │
+        ┌────────▼─────────┐
+        │ Routes Component │
+        │ - Public Routes  │
+        │ - Protected      │
+        │ - Admin Routes   │
+        └────────┬─────────┘
+                 │
+      ┌──────────┼──────────┐
+      │          │          │
+  ┌───▼──┐  ┌────▼───┐  ┌──▼────┐
+  │Login │  │Dashboard│  │Others..
+  │Page  │  │Page     │  └────────┘
+  └──────┘  └─────────┘
+
+   │Public      │Protected    │Admin
+   │Routes      │Routes       │Routes
+```
+
+---
+
+## Data Flow Diagram
+
+```
+FRONTEND                              BACKEND
+────────                              ───────
+
+┌──────────┐
+│ User     │
+│ Input    │
+└────┬─────┘
+     │
+┌────▼──────────┐
+│ React State   │
+│ (useState)    │
+└────┬──────────┘
+     │
+┌────▼──────────────┐
+│ API Call via      │
+│ axios (services)  │
+└────┬──────────────┘
+     │
+     │ HTTP Request
+     ├─────────────────────────────────────┐
+                                           │
+                            ┌──────────────▼────────┐
+                            │ Express Routing       │
+                            │ Request → Route       │
+                            └──────────────┬────────┘
+                                           │
+                            ┌──────────────▼────────┐
+                            │ Middleware            │
+                            │ - Auth Check          │
+                            │ - File Upload         │
+                            └──────────────┬────────┘
+                                           │
+                            ┌──────────────▼────────┐
+                            │ Controller            │
+                            │ - Business Logic      │
+                            │ - Data Processing     │
+                            └──────────────┬────────┘
+                                           │
+                            ┌──────────────▼────────┐
+                            │ Model/Database        │
+                            │ - Query MongoDB       │
+                            │ - Save/Update Data    │
+                            └──────────────┬────────┘
+                                           │
+     ┌─────────────────────────────────────┤
+     │
+     │ HTTP Response
+┌────▼──────────┐
+│ Axios         │
+│ Interceptor   │
+└────┬──────────┘
+     │
+┌────▼──────────┐
+│ Update State  │
+│ (setState)    │
+└────┬──────────┘
+     │
+┌────▼──────────┐
+│ Re-render UI  │
+└───────────────┘
+```
+
+---
+
+## Authentication Flow
+
+```
+┌─────────────────┐
+│ Signup/Login    │
+└────────┬────────┘
+         │
+         ▼
+┌──────────────────────────────┐
+│ authController             │
+│ 1. Validate input          │
+│ 2. Hash password (bcrypt)  │
+│ 3. Save to DB or verify    │
+│ 4. Generate JWT token      │
+└────────┬─────────────────────┘
+         │
+         ▼ {token, user}
+┌──────────────────────────────┐
+│ AuthContext                 │
+│ 1. Save token to state      │
+│ 2. Save to localStorage     │
+│ 3. Update user info         │
+└────────┬─────────────────────┘
+         │
+         ▼
+┌──────────────────────────────┐
+│ Protected Routes            │
+│ Check user in AuthContext   │
+│ If not logged in → redirect │
+└──────────────────────────────┘
+         │
+         ▼
+┌──────────────────────────────┐
+│ API Requests                │
+│ axios interceptor adds:     │
+│ Authorization: Bearer token │
+└────────┬─────────────────────┘
+         │
+         ▼
+┌──────────────────────────────┐
+│ Backend Auth Middleware      │
+│ 1. Extract token from header │
+│ 2. Verify JWT signature      │
+│ 3. Decode userId             │
+│ 4. Continue or reject        │
+└──────────────────────────────┘
+```
+
+---
+
+## File Upload Flow
+
+```
+┌─────────────────────────┐
+│ Resume File Upload      │
+│ (ResumeUpload.jsx)      │
+└────────┬────────────────┘
+         │
+         ▼
+┌─────────────────────────────┐
+│ FormData Object             │
+│ - file (binary)             │
+│ - jobTitle (string)         │
+│ - jobDescription (string)   │
+└────────┬────────────────────┘
+         │
+         ▼
+┌─────────────────────────────┐
+│ axios POST with             │
+│ Content-Type: multipart     │
+└────────┬────────────────────┘
+         │
+         ▼
+┌─────────────────────────────┐
+│ Express Route               │
+│ upload.single('resume')     │
+└────────┬────────────────────┘
+         │
+         ▼
+┌─────────────────────────────┐
+│ Multer Middleware           │
+│ 1. Validate file type       │
+│ 2. Check file size          │
+│ 3. Save to /uploads folder  │
+│ 4. Attach to req.file       │
+└────────┬────────────────────┘
+         │
+         ▼
+┌─────────────────────────────┐
+│ Controller Handler          │
+│ 1. Create Interview doc     │
+│ 2. Store file path          │
+│ 3. Save to DB               │
+│ 4. Return interviewId       │
+└─────────────────────────────┘
+```
+
+---
+
+## Database Relationships
+
+```
+┌─────────────────┐
+│     User        │
+│                 │
+│ _id             │ ◄────────┐
+│ name            │          │
+│ email           │          │
+│ password        │          │
+│ role            │          │
+│ createdAt       │          │
+└─────────────────┘          │
+          ▲                   │
+          │ (one user many)   │
+          │                   │
+          │                   │
+┌─────────────────────────────┐
+│     Interview               │
+│                             │
+│ _id                         │
+│ userId ─────────────────────┤
+│ jobTitle                    │
+│ jobDescription              │
+│ resumePath                  │
+│ difficulty                  │
+│ status                      │
+│ questions []                │◄──┐
+│ answers []                  │   │
+│ score                       │   │
+└─────────────────────────────┘   │
+                                  │
+                    ┌─────────────┘
+                    │
+             ┌──────▼──────────┐
+             │   Question      │
+             │                 │
+             │ _id             │
+             │ jobTitle        │
+             │ difficulty      │
+             │ category        │
+             │ text            │
+             │ hint            │
+             │ expectedKeywords
+             │ sampleAnswer    │
+             └─────────────────┘
+```
+
+---
+
+## Deployment Architecture (Optional)
+
+```
+┌────────────────────────────┐
+│   PRODUCTION DEPLOYMENT    │
+└────────────┬───────────────┘
+             │
+    ┌────────┴────────┐
+    │                 │
+┌───▼────────────┐ ┌─▼──────────────┐
+│ Frontend       │ │ Backend        │
+│ Deployed on:   │ │ Deployed on:   │
+│ - Vercel       │ │ - Heroku       │
+│ - Netlify      │ │ - Railway      │
+│ - S3 + Dist    │ │ - AWS EC2      │
+│ - GitHub Pages │ │ - DigitalOcean │
+└────────────────┘ └────────┬───────┘
+                            │
+                    ┌───────▼──────────┐
+                    │ MongoDB Atlas    │
+                    │ (Cloud Database) │
+                    └──────────────────┘
+```
+
+---
+
+## Tech Stack Summary
+
+```
+┌─────────────────────────────────────────┐
+│           FRONTEND STACK                │
+├─────────────────────────────────────────┤
+│ React 18            - UI Framework      │
+│ Vite                - Build Tool        │
+│ React Router v6     - Client Routing    │
+│ Tailwind CSS        - Styling           │
+│ Axios               - HTTP Client       │
+│ Recharts            - Charts/Analytics  │
+│ Chart.js            - Alternative Chart │
+└─────────────────────────────────────────┘
+
+┌─────────────────────────────────────────┐
+│           BACKEND STACK                 │
+├─────────────────────────────────────────┤
+│ Node.js             - Runtime           │
+│ Express.js          - Web Framework     │
+│ MongoDB             - Database          │
+│ Mongoose            - ODM               │
+│ JWT                 - Authentication    │
+│ bcryptjs            - Password Hashing  │
+│ Multer              - File Upload       │
+│ CORS                - Cross-Origin      │
+└─────────────────────────────────────────┘
+```
+
+---
+
+## Key Integration Points
+
+### Frontend-Backend Communication
+- ✅ Axios HTTP client with interceptors
+- ✅ JWT token injection in headers
+- ✅ Error handling and redirects
+- ✅ CORS enabled on backend
+
+### State Management
+- ✅ React Context for Auth state
+- ✅ useState for component state
+- ✅ localStorage for persistence
+
+### Database Operations
+- ✅ Mongoose schemas for validation
+- ✅ MongoDB operations (CRUD)
+- ✅ Relationships between collections
+
+### Security
+- ✅ Password hashing with bcrypt
+- ✅ JWT token verification
+- ✅ Protected API routes
+- ✅ File upload validation
+
+---
+
+**Architecture Diagram Created: March 30, 2026**
