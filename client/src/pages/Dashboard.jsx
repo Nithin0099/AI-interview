@@ -21,12 +21,12 @@ const Dashboard = () => {
   }, [])
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-4xl font-bold">Dashboard</h1>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-8 gap-4">
+        <h1 className="text-2xl sm:text-4xl font-bold">Dashboard</h1>
         <Link
           to="/resume-upload"
-          className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700"
+          className="w-full sm:w-auto text-center bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700"
         >
           Start Interview
         </Link>
@@ -49,7 +49,7 @@ const Dashboard = () => {
 
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-2xl font-bold">Recent Interviews</h2>
+          <h2 className="text-xl sm:text-2xl font-bold">Recent Interviews</h2>
         </div>
 
         {loading ? (
@@ -59,40 +59,42 @@ const Dashboard = () => {
             No interviews yet. <Link to="/resume-upload" className="text-blue-600">Start one now!</Link>
           </div>
         ) : (
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-sm font-semibold">Title</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold">Status</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold">Score</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {interviews.map((interview) => (
-                <tr key={interview._id} className="border-t border-gray-200 hover:bg-gray-50">
-                  <td className="px-6 py-4">{interview.title}</td>
-                  <td className="px-6 py-4">
-                    <span className={`px-3 py-1 rounded text-sm font-semibold ${
-                      interview.status === 'completed' ? 'bg-green-100 text-green-800' :
-                      interview.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
-                      'bg-gray-100 text-gray-800'
-                    }`}>
-                      {interview.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">{interview.score || '-'}</td>
-                  <td className="px-6 py-4">
-                    {interview.status === 'completed' && (
-                      <Link to={`/results/${interview._id}`} className="text-blue-600 hover:underline">
-                        View Results
-                      </Link>
-                    )}
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="min-w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-sm font-semibold">Title</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold">Status</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold">Score</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold">Action</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {interviews.map((interview) => (
+                  <tr key={interview._id} className="border-t border-gray-200 hover:bg-gray-50">
+                    <td className="px-6 py-4">{interview.title}</td>
+                    <td className="px-6 py-4">
+                      <span className={`px-3 py-1 rounded text-sm font-semibold ${
+                        interview.status === 'completed' ? 'bg-green-100 text-green-800' :
+                        interview.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {interview.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">{interview.score || '-'}</td>
+                    <td className="px-6 py-4">
+                      {interview.status === 'completed' && (
+                        <Link to={`/results/${interview._id}`} className="text-blue-600 hover:underline">
+                          View Results
+                        </Link>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>

@@ -1,4 +1,4 @@
-import { createBrowserRouter, RouterProvider } from 'react-router-dom'
+import { createBrowserRouter, RouterProvider, Outlet, Navigate } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import PrivateRoute from './components/PrivateRoute'
 import Navbar from './components/Navbar'
@@ -23,32 +23,29 @@ const router = createBrowserRouter(
         <AuthProvider>
           <div className="min-h-screen bg-gray-50">
             <Navbar />
-            <Routes>
-              {/* Public Routes */}
-              <Route path="/login" element={<Login />} />
-              <Route path="/signup" element={<Signup />} />
-
-              {/* Protected Routes */}
-              <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
-              <Route path="/resume-upload" element={<PrivateRoute><ResumeUpload /></PrivateRoute>} />
-              <Route path="/interview-setup" element={<PrivateRoute><InterviewSetup /></PrivateRoute>} />
-              <Route path="/interview/:id/question" element={<PrivateRoute><AIQuestionScreen /></PrivateRoute>} />
-              <Route path="/interview/:id/recording" element={<PrivateRoute><VoiceRecordingScreen /></PrivateRoute>} />
-              <Route path="/results/:id" element={<PrivateRoute><ResultsDashboard /></PrivateRoute>} />
-              <Route path="/analytics" element={<PrivateRoute><PerformanceAnalytics /></PrivateRoute>} />
-              
-              {/* Admin Routes */}
-              <Route path="/admin" element={<PrivateRoute><AdminPanel /></PrivateRoute>} />
-            </Routes>
+            <Outlet />
           </div>
         </AuthProvider>
-      )
+      ),
+      children: [
+        { path: 'login', element: <Login /> },
+        { path: 'signup', element: <Signup /> },
+        { path: '', element: <PrivateRoute><Dashboard /></PrivateRoute> },
+        { path: 'resume-upload', element: <PrivateRoute><ResumeUpload /></PrivateRoute> },
+        { path: 'interview-setup', element: <PrivateRoute><InterviewSetup /></PrivateRoute> },
+        { path: 'interview/:id/question', element: <PrivateRoute><AIQuestionScreen /></PrivateRoute> },
+        { path: 'interview/:id/recording', element: <PrivateRoute><VoiceRecordingScreen /></PrivateRoute> },
+        { path: 'results/:id', element: <PrivateRoute><ResultsDashboard /></PrivateRoute> },
+        { path: 'analytics', element: <PrivateRoute><PerformanceAnalytics /></PrivateRoute> },
+        { path: 'admin', element: <PrivateRoute><AdminPanel /></PrivateRoute> },
+        { path: '*', element: <Navigate to="/" replace /> }
+      ]
     }
   ],
   {
     future: {
       v7_startTransition: true,
-    },
+    }
   }
 )
 
