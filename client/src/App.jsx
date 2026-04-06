@@ -1,5 +1,6 @@
 import { createBrowserRouter, RouterProvider, Outlet, Navigate } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
+import { ThemeProvider } from './context/ThemeContext'
 import PrivateRoute from './components/PrivateRoute'
 import Navbar from './components/Navbar'
 
@@ -21,10 +22,12 @@ const router = createBrowserRouter(
       path: '/',
       element: (
         <AuthProvider>
-          <div className="min-h-screen bg-gray-50">
-            <Navbar />
-            <Outlet />
-          </div>
+          <ThemeProvider>
+            <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+              <Navbar />
+              <Outlet />
+            </div>
+          </ThemeProvider>
         </AuthProvider>
       ),
       children: [
