@@ -147,3 +147,25 @@ exports.getAllInterviews = async (req, res) => {
     res.status(500).json({ message: error.message })
   }
 }
+
+exports.deleteInterview = async (req, res) => {
+  try {
+    const interview = await Interview.findById(req.params.id)
+    if (!interview) {
+      return res.status(404).json({ message: 'Interview not found' })
+    }
+
+    if (interview.userId.toString() !== req.userId) {
+      return res.status(403).json({ message: 'Unauthorized' })
+    }
+
+    if (interview.resumePath) {
+      fs.unlink(interview.resumePath, () => {})
+    }
+
+    await Interview.findByIdAndDelete(req.params.id)
+    res.json({ message: 'Interview deleted successfully' })
+  } catch (error) {
+    res.status(500).json({ message: error.message })
+  }
+}

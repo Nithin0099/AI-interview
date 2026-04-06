@@ -22,7 +22,7 @@ app.use(morgan('combined'))
 
 const authRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 20,
+  max: 50, // Increased from 20 to 50
   message: { message: 'Too many requests from this IP, please try again later.' }
 })
 
@@ -36,10 +36,7 @@ if (!fs.existsSync('uploads')) {
 app.use('/uploads', express.static('uploads'))
 
 // Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/ai-interview', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-})
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/ai-interview')
 .then(() => console.log('MongoDB connected'))
 .catch(err => console.log('MongoDB connection error:', err))
 

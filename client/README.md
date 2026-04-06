@@ -35,7 +35,7 @@ npm run preview
 - **ResumeUpload.jsx**: Resume and job details upload
 - **InterviewSetup.jsx**: Configure interview settings
 - **AIQuestionScreen.jsx**: Answer questions
-- **VoiceRecordingScreen.jsx**: Record voice responses
+- **VideoRecordingScreen.jsx**: Record video/audio responses
 - **ResultsDashboard.jsx**: View interview results
 - **PerformanceAnalytics.jsx**: Analytics and charts
 - **AdminPanel.jsx**: Admin user/interview management

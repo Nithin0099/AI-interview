@@ -5,6 +5,7 @@ import api from '../services/api'
 const Dashboard = () => {
   const [interviews, setInterviews] = useState([])
   const [loading, setLoading] = useState(true)
+  const [toastMessage, setToastMessage] = useState('')
 
   useEffect(() => {
     const fetchInterviews = async () => {
@@ -20,6 +21,19 @@ const Dashboard = () => {
     fetchInterviews()
   }, [])
 
+  const handleDelete = async (interviewId) => {
+    if (!window.confirm('Delete this in-progress interview? This action cannot be undone.')) return
+    try {
+      await api.delete(`/interviews/${interviewId}`)
+      setInterviews(prev => prev.filter(interview => interview._id !== interviewId))
+      setToastMessage('Deleted successfully')
+      window.setTimeout(() => setToastMessage(''), 3500)
+    } catch (error) {
+      const message = error.response?.data?.message || 'Failed to delete interview'
+      alert(message)
+    }
+  }
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-8 gap-4">
@@ -31,6 +45,12 @@ const Dashboard = () => {
           Start Interview
         </Link>
       </div>
+
+      {toastMessage && (
+        <div className="mb-6 rounded-lg bg-green-50 border border-green-200 p-4 text-sm text-green-800 shadow-sm">
+          {toastMessage}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="bg-white p-6 rounded-lg shadow-md">
@@ -72,7 +92,7 @@ const Dashboard = () => {
               <tbody>
                 {interviews.map((interview) => (
                   <tr key={interview._id} className="border-t border-gray-200 hover:bg-gray-50">
-                    <td className="px-6 py-4">{interview.title}</td>
+                    <td className="px-6 py-4">{interview.jobTitle || interview.title}</td>
                     <td className="px-6 py-4">
                       <span className={`px-3 py-1 rounded text-sm font-semibold ${
                         interview.status === 'completed' ? 'bg-green-100 text-green-800' :
@@ -83,11 +103,19 @@ const Dashboard = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4">{interview.score || '-'}</td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 space-y-2">
                       {interview.status === 'completed' && (
-                        <Link to={`/results/${interview._id}`} className="text-blue-600 hover:underline">
+                        <Link to={`/results/${interview._id}`} className="text-blue-600 hover:underline block">
                           View Results
                         </Link>
+                      )}
+                      {interview.status === 'in_progress' && (
+                        <button
+                          onClick={() => handleDelete(interview._id)}
+                          className="text-red-600 hover:underline"
+                        >
+                          Delete
+                        </button>
                       )}
                     </td>
                   </tr>

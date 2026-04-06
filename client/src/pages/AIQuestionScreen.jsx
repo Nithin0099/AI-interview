@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import api from '../services/api'
 
@@ -10,6 +10,8 @@ const AIQuestionScreen = () => {
   const [answer, setAnswer] = useState('')
   const [loading, setLoading] = useState(false)
   const [timeLeft, setTimeLeft] = useState(300)
+  const [isPlaying, setIsPlaying] = useState(false)
+  const speechRef = useRef(null)
 
   useEffect(() => {
     const fetchQuestion = async () => {
@@ -75,21 +77,47 @@ const AIQuestionScreen = () => {
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`
   }
 
+  const playQuestion = () => {
+    if (speechRef.current) {
+      window.speechSynthesis.cancel()
+    }
+    if (question) {
+      const utterance = new SpeechSynthesisUtterance(question.text)
+      utterance.onstart = () => setIsPlaying(true)
+      utterance.onend = () => setIsPlaying(false)
+      speechRef.current = utterance
+      window.speechSynthesis.speak(utterance)
+    }
+  }
+
+  const stopQuestion = () => {
+    window.speechSynthesis.cancel()
+    setIsPlaying(false)
+  }
+
   if (!question) {
     return <div className="text-center py-8">Loading question...</div>
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
-      <div className="mb-4 flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Question {questionIndex + 1}</h1>
-        <div className={`text-2xl font-bold ${timeLeft < 60 ? 'text-red-600' : 'text-blue-600'}`}>
+    <div className="max-w-4xl mx-auto px-4 py-4 sm:py-8">
+      <div className="mb-4 flex flex-col sm:flex-row sm:justify-between sm:items-center">
+        <h1 className="text-xl sm:text-2xl font-bold mb-2 sm:mb-0">Question {questionIndex + 1}</h1>
+        <div className={`text-xl sm:text-2xl font-bold ${timeLeft < 60 ? 'text-red-600' : 'text-blue-600'}`}>
           {formatTime(timeLeft)}
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-md p-8 mb-6">
-        <p className="text-xl text-gray-800 mb-6">{question.text}</p>
+      <div className="bg-white rounded-lg shadow-md p-4 sm:p-8 mb-6">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4">
+          <p className="text-lg sm:text-xl text-gray-800 mb-2 sm:mb-0">{question.text}</p>
+          <button
+            onClick={isPlaying ? stopQuestion : playQuestion}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center gap-2 text-sm sm:text-base"
+          >
+            {isPlaying ? '🔊 Stop' : '🔊 Play'} Question
+          </button>
+        </div>
         
         {question.hint && (
           <div className="bg-blue-50 p-4 rounded mb-4">
@@ -98,20 +126,20 @@ const AIQuestionScreen = () => {
         )}
       </div>
 
-      <div className="bg-white rounded-lg shadow-md p-8">
-        <label className="block text-gray-700 font-semibold mb-4">Your Answer</label>
+      <div className="bg-white rounded-lg shadow-md p-4 sm:p-8">
+        <label className="block text-gray-700 font-semibold mb-4 text-sm sm:text-base">Your Answer</label>
         <textarea
           value={answer}
           onChange={(e) => setAnswer(e.target.value)}
           placeholder="Type your answer here..."
           rows="6"
-          className="w-full px-4 py-3 border border-gray-300 rounded focus:outline-none focus:border-blue-500 mb-4"
+          className="w-full px-4 py-3 border border-gray-300 rounded focus:outline-none focus:border-blue-500 mb-4 text-sm sm:text-base"
         />
 
         <button
           onClick={handleNext}
           disabled={loading}
-          className="w-full bg-blue-600 text-white py-3 rounded font-semibold hover:bg-blue-700 disabled:bg-gray-400"
+          className="w-full bg-blue-600 text-white py-3 rounded font-semibold hover:bg-blue-700 disabled:bg-gray-400 text-sm sm:text-base"
         >
           {loading ? 'Saving...' : 'Next Question'}
         </button>

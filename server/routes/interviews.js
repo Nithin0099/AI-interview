@@ -8,7 +8,8 @@ const {
   getQuestion,
   submitAnswer,
   getResults,
-  getAllInterviews
+  getAllInterviews,
+  deleteInterview
 } = require('../controllers/interviewController')
 
 const router = express.Router()
@@ -21,9 +22,10 @@ router.get('/:id', getInterview)
 router.put('/:id', updateInterview)
 router.get('/:id/question/:index', getQuestion)
 router.post('/:id/answer', submitAnswer)
-router.post('/:id/submit-audio', upload.single('audio'), (req, res) => {
-  res.json({ message: 'Audio submitted' })
+router.post('/:id/submit-media', upload.single('media'), (req, res) => {
+  res.json({ message: 'Media submitted' })
 })
+router.delete('/:id', deleteInterview)
 router.get('/:id/results', getResults)
 
 module.exports = router

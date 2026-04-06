@@ -20,6 +20,7 @@ const Signup = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (loading) return // Prevent multiple submissions
     setError('')
 
     if (formData.password !== formData.confirmPassword) {

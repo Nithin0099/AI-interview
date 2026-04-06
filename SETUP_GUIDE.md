@@ -243,7 +243,7 @@ GET    /api/interviews/:id        # Get interview details
 PUT    /api/interviews/:id        # Update interview settings
 GET    /api/interviews/:id/question/:index   # Get specific question
 POST   /api/interviews/:id/answer # Submit answer
-POST   /api/interviews/:id/submit-audio      # Submit voice
+POST   /api/interviews/:id/submit-media      # Submit video/audio
 GET    /api/interviews/:id/results           # Get results
 ```
 

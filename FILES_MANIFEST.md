@@ -27,7 +27,7 @@ client/src/
 │   ├── ResumeUpload.jsx        # Upload resume & job details
 │   ├── InterviewSetup.jsx      # Configure difficulty & duration
 │   ├── AIQuestionScreen.jsx    # Answer questions with timer
-│   ├── VoiceRecordingScreen.jsx # Record voice responses
+│   ├── VideoRecordingScreen.jsx # Record video/audio responses
 │   ├── ResultsDashboard.jsx    # View interview results & feedback
 │   ├── PerformanceAnalytics.jsx # Charts & analytics
 │   └── AdminPanel.jsx          # Manage users & interviews
@@ -87,7 +87,7 @@ server/routes/
 │   ├── PUT /:id
 │   ├── GET /:id/question/:index
 │   ├── POST /:id/answer
-│   ├── POST /:id/submit-audio
+│   ├── POST /:id/submit-media
 │   └── GET /:id/results
 │
 ├── admin.js                    # /api/admin/* routes
@@ -183,7 +183,7 @@ Root Directory:
 - **Features**: Question display, Timer, Answer submission
 
 ### Audio Recording
-- **Files**: VoiceRecordingScreen.jsx
+- **Files**: VideoRecordingScreen.jsx
 - **Features**: Record, Preview, Re-record, Submit
 
 ### Results & Analytics

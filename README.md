@@ -128,7 +128,7 @@ The frontend will be available at `http://localhost:3000`
 - `PUT /api/interviews/:id` - Update interview
 - `GET /api/interviews/:id/question/:index` - Get question
 - `POST /api/interviews/:id/answer` - Submit answer
-- `POST /api/interviews/:id/submit-audio` - Submit audio response
+- `POST /api/interviews/:id/submit-media` - Submit video/audio response
 - `GET /api/interviews/:id/results` - Get interview results
 
 ### Admin

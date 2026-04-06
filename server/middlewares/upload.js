@@ -13,8 +13,9 @@ const storage = multer.diskStorage({
 const fileFilter = (req, file, cb) => {
   const allowedMimes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
   const allowedAudio = ['audio/wav', 'audio/mpeg', 'audio/webm']
+  const allowedVideo = ['video/webm', 'video/mp4', 'video/avi']
   
-  if (allowedMimes.includes(file.mimetype) || allowedAudio.includes(file.mimetype)) {
+  if (allowedMimes.includes(file.mimetype) || allowedAudio.includes(file.mimetype) || allowedVideo.includes(file.mimetype)) {
     cb(null, true)
   } else {
     cb(new Error('Invalid file type'))
