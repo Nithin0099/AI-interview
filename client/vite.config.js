@@ -8,9 +8,15 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg}']
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,json}']
       },
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
+      includeAssets: [
+        'favicon.ico',
+        'apple-touch-icon.png',
+        'masked-icon.svg',
+        'models/tiny_face_detector_model-weights_manifest.json',
+        'models/tiny_face_detector_model-shard1'
+      ],
       manifest: {
         name: 'AI Interview Platform',
         short_name: 'AI Interview',

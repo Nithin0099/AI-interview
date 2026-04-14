@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import * as faceapi from 'face-api.js'
+import { useEffect, useRef, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import api from '../services/api'
+import { useFaceDetection } from '../hooks/useFaceDetection'
+import { createProctoringEvent, flushProctoringEvents, queueProctoringEvent } from '../services/proctoring'
 
 const AIQuestionScreen = () => {
   const { id } = useParams()
@@ -13,14 +14,27 @@ const AIQuestionScreen = () => {
   const [timeLeft, setTimeLeft] = useState(300)
   const [isPlaying, setIsPlaying] = useState(false)
   const [hasPermissions, setHasPermissions] = useState(false)
-  const [modelsLoaded, setModelsLoaded] = useState(false)
-  const [faceDetected, setFaceDetected] = useState(false)
   const [isListening, setIsListening] = useState(false)
+
   const speechRef = useRef(null)
   const videoRef = useRef(null)
   const streamRef = useRef(null)
-  const faceDetectionIntervalRef = useRef(null)
   const recognitionRef = useRef(null)
+  const handleNextRef = useRef(null)
+  const lastFaceDetectedRef = useRef(null)
+  const lastDetectorStatusRef = useRef('')
+
+  const {
+    isReady,
+    isLoading: isFaceDetectionLoading,
+    detectorType,
+    faceDetected,
+    statusMessage,
+    startDetection,
+    stopDetection,
+  } = useFaceDetection({
+    intervalMs: 900,
+  })
 
   useEffect(() => {
     const fetchQuestion = async () => {
@@ -31,118 +45,200 @@ const AIQuestionScreen = () => {
         console.error('Failed to fetch question:', error)
       }
     }
+
     fetchQuestion()
   }, [id, questionIndex])
 
   useEffect(() => {
+    queueProctoringEvent(id, createProctoringEvent('question_session_started', {
+      source: 'question-screen',
+    }))
+
+    return () => {
+      queueProctoringEvent(id, createProctoringEvent('question_session_ended', {
+        source: 'question-screen',
+      }))
+      flushProctoringEvents(id).catch((error) => {
+        console.error('Failed to flush proctoring events on question screen cleanup:', error)
+      })
+    }
+  }, [id])
+
+  useEffect(() => {
+    handleNextRef.current = async () => {
+      if (!answer.trim()) {
+        alert('Please provide an answer before proceeding')
+        return
+      }
+
+      setLoading(true)
+      try {
+        queueProctoringEvent(id, createProctoringEvent('answer_submitted', {
+          source: 'question-screen',
+          detected: faceDetected,
+          detectorType,
+          details: {
+            questionIndex,
+            timeSpent: 300 - timeLeft,
+          },
+        }))
+        await flushProctoringEvents(id)
+
+        await api.post(`/interviews/${id}/answer`, {
+          questionIndex,
+          answer,
+          timeSpent: 300 - timeLeft,
+        })
+
+        setAnswer('')
+        setTimeLeft(300)
+
+        const response = await api.get(`/interviews/${id}/question/${questionIndex + 1}`)
+        if (response.data.question) {
+          setQuestionIndex(questionIndex + 1)
+        } else {
+          navigate(`/results/${id}`)
+        }
+      } catch (error) {
+        console.error('Failed to save answer or proctoring events:', error)
+        if (error.response?.status === 404) {
+          navigate(`/results/${id}`)
+        }
+      } finally {
+        setLoading(false)
+      }
+    }
+  }, [answer, detectorType, faceDetected, id, navigate, questionIndex, timeLeft])
+
+  useEffect(() => {
     const timer = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          handleNext()
+      setTimeLeft((previousTime) => {
+        if (previousTime <= 1) {
+          window.setTimeout(() => {
+            handleNextRef.current?.()
+          }, 0)
           return 0
         }
-        return prev - 1
+
+        return previousTime - 1
       })
     }, 1000)
+
     return () => clearInterval(timer)
   }, [])
 
-  // Load face detection models
-  useEffect(() => {
-    const loadModels = async () => {
-      try {
-        const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models/'
-        await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL)
-        await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL)
-        setModelsLoaded(true)
-      } catch (error) {
-        console.error('Error loading face detection models:', error)
-      }
-    }
-    loadModels()
-  }, [])
-
-  // Request permissions and start video
   useEffect(() => {
     const startCamera = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
         streamRef.current = stream
+
         if (videoRef.current) {
           videoRef.current.srcObject = stream
         }
+
         setHasPermissions(true)
-      } catch (err) {
-        console.error('Error accessing camera/mic:', err)
+        queueProctoringEvent(id, createProctoringEvent('camera_permission_granted', {
+          source: 'question-screen',
+        }))
+      } catch (error) {
+        console.error('Error accessing camera/mic:', error)
+        queueProctoringEvent(id, createProctoringEvent('camera_permission_denied', {
+          source: 'question-screen',
+          details: {
+            message: error.message,
+          },
+        }))
         alert('Please allow camera and microphone permissions to proceed with the interview.')
       }
     }
+
     startCamera()
 
     return () => {
       if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop())
+        streamRef.current.getTracks().forEach((track) => track.stop())
       }
-      if (faceDetectionIntervalRef.current) {
-        clearInterval(faceDetectionIntervalRef.current)
-      }
-    }
-  }, [])
 
-  // Face detection loop
+      if (recognitionRef.current) {
+        recognitionRef.current.stop()
+      }
+
+      window.speechSynthesis.cancel()
+      stopDetection()
+    }
+  }, [id, stopDetection])
+
   useEffect(() => {
-    if (!modelsLoaded || !hasPermissions) return
-
-    const detectFace = async () => {
-      if (videoRef.current && videoRef.current.videoWidth > 0) {
-        try {
-          const detections = await faceapi.detectSingleFace(
-            videoRef.current, 
-            new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 })
-          )
-          setFaceDetected(!!detections)
-        } catch (e) {
-          console.error("Face detection error", e)
-        }
-      }
-    }
-
-    faceDetectionIntervalRef.current = setInterval(detectFace, 1000)
-
-    return () => clearInterval(faceDetectionIntervalRef.current)
-  }, [modelsLoaded, hasPermissions])
-
-  const handleNext = async () => {
-    if (!answer.trim()) {
-      alert('Please provide an answer before proceeding')
+    if (!hasPermissions || !isReady || !videoRef.current) {
       return
     }
 
-    setLoading(true)
-    try {
-      await api.post(`/interviews/${id}/answer`, {
-        questionIndex,
-        answer,
-        timeSpent: 300 - timeLeft
-      })
+    startDetection(videoRef.current)
+  }, [hasPermissions, isReady, startDetection])
 
-      setAnswer('')
-      setTimeLeft(300)
-      
-      // Check if there are more questions
-      const response = await api.get(`/interviews/${id}/question/${questionIndex + 1}`)
-      if (response.data.question) {
-        setQuestionIndex(questionIndex + 1)
-      } else {
-        navigate(`/results/${id}`)
-      }
-    } catch (error) {
-      if (error.response?.status === 404) {
-        navigate(`/results/${id}`)
-      }
-    } finally {
-      setLoading(false)
+  useEffect(() => {
+    const nextStatus = isFaceDetectionLoading
+      ? 'loading'
+      : isReady
+        ? `ready:${detectorType || 'unknown'}`
+        : 'unavailable'
+
+    if (nextStatus === lastDetectorStatusRef.current) {
+      return
     }
+
+    lastDetectorStatusRef.current = nextStatus
+
+    if (isFaceDetectionLoading) {
+      return
+    }
+
+    queueProctoringEvent(id, createProctoringEvent(
+      isReady ? 'detector_ready' : 'detector_unavailable',
+      {
+        source: 'question-screen',
+        detectorType,
+        details: {
+          statusMessage,
+        },
+      }
+    ))
+  }, [detectorType, id, isFaceDetectionLoading, isReady, statusMessage])
+
+  useEffect(() => {
+    if (!hasPermissions || isFaceDetectionLoading) {
+      return
+    }
+
+    if (lastFaceDetectedRef.current === faceDetected) {
+      return
+    }
+
+    lastFaceDetectedRef.current = faceDetected
+
+    queueProctoringEvent(id, createProctoringEvent(
+      faceDetected ? 'face_detected' : 'face_lost',
+      {
+        source: 'question-screen',
+        detected: faceDetected,
+        detectorType,
+      }
+    ))
+  }, [detectorType, faceDetected, hasPermissions, id, isFaceDetectionLoading])
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      flushProctoringEvents(id).catch((error) => {
+        console.error('Failed to flush proctoring events:', error)
+      })
+    }, 10000)
+
+    return () => window.clearInterval(intervalId)
+  }, [id])
+
+  const handleNext = async () => {
+    await handleNextRef.current?.()
   }
 
   const formatTime = (seconds) => {
@@ -155,6 +251,7 @@ const AIQuestionScreen = () => {
     if (speechRef.current) {
       window.speechSynthesis.cancel()
     }
+
     if (question) {
       const utterance = new SpeechSynthesisUtterance(question.text)
       utterance.onstart = () => setIsPlaying(true)
@@ -171,7 +268,10 @@ const AIQuestionScreen = () => {
 
   const startVoiceInput = () => {
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      alert('Speech recognition not supported in this browser.')
+      queueProctoringEvent(id, createProctoringEvent('voice_input_unavailable', {
+        source: 'question-screen',
+      }))
+      alert('Speech recognition is not supported in this browser.')
       return
     }
 
@@ -183,22 +283,30 @@ const AIQuestionScreen = () => {
 
     recognitionRef.current.onstart = () => {
       setIsListening(true)
+      queueProctoringEvent(id, createProctoringEvent('voice_input_started', {
+        source: 'question-screen',
+      }))
     }
 
     recognitionRef.current.onresult = (event) => {
       let finalTranscript = ''
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        if (event.results[i].isFinal) {
-          finalTranscript += event.results[i][0].transcript
+
+      for (let index = event.resultIndex; index < event.results.length; index += 1) {
+        if (event.results[index].isFinal) {
+          finalTranscript += event.results[index][0].transcript
         }
       }
+
       if (finalTranscript) {
-        setAnswer(prev => prev + ' ' + finalTranscript)
+        setAnswer((previousAnswer) => `${previousAnswer} ${finalTranscript}`.trim())
       }
     }
 
     recognitionRef.current.onend = () => {
       setIsListening(false)
+      queueProctoringEvent(id, createProctoringEvent('voice_input_stopped', {
+        source: 'question-screen',
+      }))
     }
 
     recognitionRef.current.start()
@@ -213,6 +321,12 @@ const AIQuestionScreen = () => {
   if (!question) {
     return <div className="text-center py-8">Loading question...</div>
   }
+
+  const detectorLabel = detectorType === 'native'
+    ? 'Native detector'
+    : detectorType === 'face-api'
+      ? 'face-api fallback'
+      : 'Detector unavailable'
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-4 sm:py-8">
@@ -238,9 +352,14 @@ const AIQuestionScreen = () => {
             aria-label="Video feed for face detection"
           />
           {hasPermissions && (
-            <div className={`absolute bottom-0 left-0 right-0 text-xs font-semibold py-1 text-center text-white ${faceDetected ? 'bg-green-500/80' : 'bg-red-500/90'}`}>
-              {faceDetected ? 'Face Detected' : 'No Face'}
-            </div>
+            <>
+              <div className={`absolute bottom-0 left-0 right-0 text-xs font-semibold py-1 text-center text-white ${faceDetected ? 'bg-green-500/80' : 'bg-red-500/90'}`}>
+                {faceDetected ? 'Face Detected' : 'No Face'}
+              </div>
+              <div className="absolute top-0 left-0 right-0 bg-black/60 px-2 py-1 text-[10px] text-white">
+                {isFaceDetectionLoading ? 'Loading detector...' : detectorLabel}
+              </div>
+            </>
           )}
           {!hasPermissions && (
             <div className="absolute inset-0 flex items-center justify-center text-xs text-gray-500 text-center p-2 bg-gray-50 dark:bg-gray-800">
@@ -258,7 +377,7 @@ const AIQuestionScreen = () => {
             className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center gap-2 text-sm sm:text-base"
             aria-label={isPlaying ? 'Stop reading question aloud' : 'Read question aloud'}
           >
-            {isPlaying ? '🔊 Stop' : '🔊 Play'} Question
+            {isPlaying ? 'Stop' : 'Play'} Question
           </button>
         </div>
 
@@ -267,6 +386,15 @@ const AIQuestionScreen = () => {
             <p className="text-sm text-gray-600 dark:text-gray-400"><strong>Hint:</strong> {question.hint}</p>
           </div>
         )}
+
+        <div className={`rounded border px-3 py-2 text-sm ${
+          faceDetected
+            ? 'border-green-200 bg-green-50 text-green-800'
+            : 'border-yellow-200 bg-yellow-50 text-yellow-800'
+        }`}>
+          {statusMessage}
+          {!faceDetected && !isFaceDetectionLoading ? ' Keep your face centered in the camera frame during the interview.' : ''}
+        </div>
       </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-8">
@@ -276,7 +404,7 @@ const AIQuestionScreen = () => {
         <textarea
           id="answer-textarea"
           value={answer}
-          onChange={(e) => setAnswer(e.target.value)}
+          onChange={(event) => setAnswer(event.target.value)}
           placeholder="Type your answer here..."
           rows="6"
           className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:border-blue-500 dark:focus:border-blue-400 mb-4 text-sm sm:text-base bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
@@ -288,7 +416,7 @@ const AIQuestionScreen = () => {
             className={`px-4 py-2 rounded text-sm sm:text-base ${isListening ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'} text-white`}
             aria-label={isListening ? 'Stop voice input' : 'Start voice input'}
           >
-            {isListening ? '🎤 Stop Voice' : '🎤 Start Voice'}
+            {isListening ? 'Stop Voice' : 'Start Voice'}
           </button>
         </div>
         <p id="answer-help" className="sr-only">Use the text area to type your answer or use voice input. You have 5 minutes to answer.</p>

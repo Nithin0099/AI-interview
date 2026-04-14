@@ -52,6 +52,28 @@ const interviewSchema = new mongoose.Schema({
     score: Number,
     feedback: String
   }],
+  mediaSubmissions: [{
+    mediaPath: String,
+    contentType: String,
+    submittedAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
+  proctoringEvents: [{
+    type: {
+      type: String,
+      required: true
+    },
+    source: String,
+    detectorType: String,
+    detected: Boolean,
+    timestamp: {
+      type: Date,
+      default: Date.now
+    },
+    details: mongoose.Schema.Types.Mixed
+  }],
   score: {
     type: Number,
     default: 0

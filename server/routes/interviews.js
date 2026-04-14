@@ -7,6 +7,8 @@ const {
   updateInterview,
   getQuestion,
   submitAnswer,
+  submitMedia,
+  submitProctoringEvents,
   getResults,
   getAllInterviews,
   deleteInterview
@@ -22,9 +24,8 @@ router.get('/:id', getInterview)
 router.put('/:id', updateInterview)
 router.get('/:id/question/:index', getQuestion)
 router.post('/:id/answer', submitAnswer)
-router.post('/:id/submit-media', upload.single('media'), (req, res) => {
-  res.json({ message: 'Media submitted' })
-})
+router.post('/:id/proctoring-events', submitProctoringEvents)
+router.post('/:id/submit-media', upload.single('media'), submitMedia)
 router.delete('/:id', deleteInterview)
 router.get('/:id/results', getResults)
 

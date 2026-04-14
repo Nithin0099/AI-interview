@@ -50,6 +50,34 @@ const ResultsDashboard = () => {
         </div>
       </div>
 
+      {results.proctoringSummary && (
+        <div className="bg-white rounded-lg shadow-md p-8 mb-8">
+          <h2 className="text-2xl font-bold mb-4">Proctoring Summary</h2>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="rounded-lg bg-gray-50 p-4 text-center">
+              <p className="text-sm font-semibold text-gray-600">Events Logged</p>
+              <p className="mt-2 text-3xl font-bold text-gray-900">{results.proctoringSummary.totalEvents}</p>
+            </div>
+            <div className="rounded-lg bg-green-50 p-4 text-center">
+              <p className="text-sm font-semibold text-green-700">Face Detected</p>
+              <p className="mt-2 text-3xl font-bold text-green-800">{results.proctoringSummary.faceDetectedCount}</p>
+            </div>
+            <div className="rounded-lg bg-red-50 p-4 text-center">
+              <p className="text-sm font-semibold text-red-700">Face Lost</p>
+              <p className="mt-2 text-3xl font-bold text-red-800">{results.proctoringSummary.faceLostCount}</p>
+            </div>
+            <div className="rounded-lg bg-blue-50 p-4 text-center">
+              <p className="text-sm font-semibold text-blue-700">Detectors Used</p>
+              <p className="mt-2 text-sm font-semibold text-blue-900">
+                {results.proctoringSummary.detectorTypes.length
+                  ? results.proctoringSummary.detectorTypes.join(', ')
+                  : 'None'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="bg-white rounded-lg shadow-md p-8 mb-8">
         <h2 className="text-2xl font-bold mb-4">Detailed Feedback</h2>
         <div className="space-y-4">
